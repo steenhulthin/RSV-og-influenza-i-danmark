@@ -34,52 +34,6 @@ READ_COLUMNS = {
     "Antal Bekræftede tilfælde",
 }
 
-AGE_GROUP_OPTIONS = {
-    "Alle": {
-        "influenza": ["Alle"],
-        "rsv": ["Alle"],
-    },
-    "0-1 år": {
-        "influenza": ["00-01"],
-        "rsv": ["01. 0-5 måneder", "02. 6-11 måneder", "03. 1 år"],
-    },
-    "0-14 år": {
-        "influenza": ["00-01", "02-06", "07-14"],
-        "rsv": [
-            "01. 0-5 måneder",
-            "02. 6-11 måneder",
-            "03. 1 år",
-            "04. 2 år",
-            "05. 3-5 år",
-            "06. 6-14 år",
-        ],
-    },
-    "6-14 år": {
-        "influenza": ["07-14"],
-        "rsv": ["06. 6-14 år"],
-    },
-    "15-44 år": {
-        "influenza": ["15-44"],
-        "rsv": ["07. 15-44 år"],
-    },
-    "45-64 år": {
-        "influenza": ["45-64"],
-        "rsv": ["08. 45-64 år"],
-    },
-    "65-74 år": {
-        "influenza": ["65-74"],
-        "rsv": ["09. 65-74 år"],
-    },
-    "75-84 år": {
-        "influenza": ["75-84"],
-        "rsv": ["10. 75-84 år"],
-    },
-    "85+ år": {
-        "influenza": ["85+"],
-        "rsv": ["11. 85+ år"],
-    },
-}
-
 COLOR_MAP = {
     "RSV": "#1F7A8C",
     "Influenza A": "#D1495B",
@@ -136,16 +90,6 @@ def inject_styles() -> None:
             margin: 0.9rem 0 0;
             color: rgba(247, 251, 252, 0.9);
             font-size: 1rem;
-        }
-
-        .panel {
-            background: rgba(255, 255, 255, 0.82);
-            border: 1px solid rgba(18, 52, 59, 0.08);
-            border-radius: 20px;
-            padding: 0.9rem 1.1rem;
-            box-shadow: 0 12px 28px rgba(18, 52, 59, 0.06);
-            backdrop-filter: blur(10px);
-            margin-bottom: 1rem;
         }
 
         .metric-card {
@@ -216,30 +160,30 @@ def load_dataset(url: str, disease_key: str) -> pd.DataFrame:
     )
     frame["week_start"] = frame["Uge"].map(parse_week_label)
 
-    frame = frame[frame["Køn"] == "Alle"].copy()
+    frame = frame[
+        (frame["Køn"] == "Alle")
+        & (frame["Aldersgruppe"] == "Alle")
+    ].copy()
+
     if disease_key == "influenza":
         frame = frame[frame["Sygdom"] == "INFLA"].copy()
     else:
         frame = frame[frame["Sygdom"] == "RSV"].copy()
 
     return frame.dropna(
-        subset=["week_start", "Region", "Aldersgruppe", "Antal borgere", "Antal Bekræftede tilfælde"]
+        subset=["week_start", "Region", "Antal borgere", "Antal Bekræftede tilfælde"]
     )
 
 
 def build_weekly_series(
     frame: pd.DataFrame,
-    disease_key: str,
     disease_label: str,
     region: str,
-    age_group: str,
     start_week: pd.Timestamp,
     end_week: pd.Timestamp,
 ) -> pd.DataFrame:
-    raw_groups = AGE_GROUP_OPTIONS[age_group][disease_key]
     filtered = frame[
         (frame["Region"] == region)
-        & (frame["Aldersgruppe"].isin(raw_groups))
         & (frame["week_start"] >= start_week)
         & (frame["week_start"] <= end_week)
     ].copy()
@@ -351,8 +295,8 @@ st.markdown(
         <div class="hero-kicker">National overvågning</div>
         <h1>RSV og influenza i Danmark</h1>
         <p>
-            Interaktivt dashboard for ugentlig incidens af RSV og influenza A med filtre for periode,
-            region og harmoniserede aldersgrupper på tværs af de to datakilder.
+            Interaktivt dashboard for ugentlig incidens af RSV og influenza A med filtre for periode
+            og region. Dashboardet viser kun aldersgruppen Alle.
         </p>
     </section>
     """,
@@ -376,7 +320,7 @@ all_weeks = (
 common_regions = sorted(set(influenza["Region"]).intersection(rsv["Region"]))
 region_options = ["Alle"] + [region for region in common_regions if region != "Alle"]
 
-filter_col, age_col, region_col = st.columns([2.3, 1, 1])
+filter_col, region_col = st.columns([2.3, 1])
 
 with filter_col:
     start_week, end_week = st.select_slider(
@@ -386,32 +330,22 @@ with filter_col:
         format_func=format_week,
     )
 
-with age_col:
-    selected_age = st.selectbox("Aldersgruppe", list(AGE_GROUP_OPTIONS))
-
 with region_col:
     selected_region = st.selectbox("Region", region_options)
 
-st.caption(
-    "Influenza-serien viser kun INFLA. Aldersgrupperne er harmoniseret på tværs af kilderne,"
-    " så småbørnsgrupper med forskellige opdelinger samles i sammenlignelige niveauer."
-)
+st.caption("Influenza-serien viser kun INFLA. Dashboardet bruger kun aldersgruppen Alle.")
 
 influenza_series = build_weekly_series(
     influenza,
-    disease_key="influenza",
     disease_label="Influenza A",
     region=selected_region,
-    age_group=selected_age,
     start_week=start_week,
     end_week=end_week,
 )
 rsv_series = build_weekly_series(
     rsv,
-    disease_key="rsv",
     disease_label="RSV",
     region=selected_region,
-    age_group=selected_age,
     start_week=start_week,
     end_week=end_week,
 )
@@ -446,7 +380,7 @@ with metric_col_1:
     render_metric_card(
         "Seneste uge",
         format_week(latest_week),
-        f"{selected_region} · {selected_age}",
+        f"{selected_region} · Alle",
     )
 
 with metric_col_2:
@@ -472,16 +406,17 @@ with metric_col_4:
     )
 
 st.subheader("Graf 1: Incidens over tid")
-st.plotly_chart(build_line_chart(line_frame), use_container_width=True)
+st.plotly_chart(build_line_chart(line_frame), width="stretch")
 
 st.subheader("Graf 2: RSV mod influenza")
 if comparison.empty:
     st.info("Scatterplottet kræver uger, hvor begge serier har data for de valgte filtre.")
 else:
-    st.plotly_chart(build_scatter_chart(comparison), use_container_width=True)
+    st.plotly_chart(build_scatter_chart(comparison), width="stretch")
 
 st.markdown(
     "Kilder: "
+    "[ssi.dk](https://ssi.dk) via "
     f"[influenza epikurve]({INFLUENZA_URL})"
     " og "
     f"[RSV epikurve]({RSV_URL})."
