@@ -1,0 +1,6 @@
+🦠 😷 Florerer influenza på samme tid som RSV (respiratorisk syncytialvirus) i Danmark? 
+
+I dag er #DagensDashboard fra min egen professionelle baghave. 👨‍⚕️
+
+ 🔎 Vurder det selv her:
+ https://rsv-og-influenza-i-danmark.streamlit.app/ 
